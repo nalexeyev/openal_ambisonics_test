@@ -39,9 +39,12 @@
 #define M_PI (3.14159265358979323846)
 #endif
 
+#define PAUSE_NSEC 10000000
 
 unsigned char* raw_data = NULL;
 size_t size;
+
+unsigned long ticks_max = 0;
 
 struct WHEADER {
 	unsigned char riff[4];				// RIFF string
@@ -140,6 +143,7 @@ ALuint LoadSound(const char *filename) {
 
 	// calculate duration of file
 	duration_in_seconds = (float) header.overall_size / header.byterate;
+	ticks_max = duration_in_seconds * 100;
 
 	// read samples from data chunk
 	size = size_of_each_sample * num_samples;
@@ -166,7 +170,9 @@ int main() {
 	ALuint source = 0, buffer;
 	ALenum state;
 
-	const char *soundname = "resources/r2d2-48000_4ch_FuMa_16bitPCM.wav";
+	//const char *soundname = "resources/guitar-[48000_4ch_16bitPCM_FuMa_FuMa(WXYZ)].wav";
+	//const char *soundname = "resources/r2d2-[48000_4ch_16bitPCM_SN3D_ACN(WX_of_WYZX)].wav";
+	const char *soundname = "resources/r2d2-[48000_4ch_16bitPCM_FuMa_FuMa(WX_of_WXYZ)].wav";
 
 	//showInfo(0, NULL);
 
@@ -193,25 +199,33 @@ int main() {
 	alGenSources(1, &source);
 	alSourcei(source, AL_SOURCE_RELATIVE, AL_FALSE);
 	alSourcei(source, AL_BUFFER, buffer);
-
 	assert(alGetError()==AL_NO_ERROR && "Failed to setup sound source");
 
+	/* Setup initial listener's orientation */
+	ALfloat listenerOri[6];
+	/* "AT" vector */
+	listenerOri[0] = (ALfloat)1.0; // Default x = 0.0
+	listenerOri[1] = (ALfloat)0.0; // Default y = 0.0
+	listenerOri[2] = (ALfloat)0.0; // Default z = -1.0
+	/* "UP" vector */
+	listenerOri[3] = (ALfloat)0.0; // Default x = 0.0
+	listenerOri[4] = (ALfloat)1.0; // Default y = 1.0
+	listenerOri[5] = (ALfloat)0.0; // Default z = 0.0
+
+	alSourcefv(source, AL_ORIENTATION, listenerOri);
+
 	/* Play the sound until it finishes. */
-	ALfloat listenerOri[] = {0.0, 0.0, -1.0, 0.0, 1.0, 0.0}; // Default values
-	alSourcefv(source, AL_ORIENTATION, listenerOri);
+
+	int ticks = 0;
 
 	alSourcePlay(source);
 	do {
-		al_nssleep(10000000);
+		al_nssleep(PAUSE_NSEC);
+		//listenerOri[0] = (ALfloat)-1.0 + 2.0/ticks_max*ticks;
+		//listenerOri[0] = 1.0;
+		alSourcefv(source, AL_ORIENTATION, listenerOri);
 		alGetSourcei(source, AL_SOURCE_STATE, &state);
-	} while(state == AL_PLAYING);
-
-	alSourcePlay(source);
-	listenerOri[1] = (ALfloat)1.0;
-	alSourcefv(source, AL_ORIENTATION, listenerOri);
-	do {
-		al_nssleep(10000000);
-		alGetSourcei(source, AL_SOURCE_STATE, &state);
+		//ticks++;
 	} while(state == AL_PLAYING);
 
 	/* All done. Delete resources, and close OpenAL. */
